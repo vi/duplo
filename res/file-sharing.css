@@ -1,0 +1,38 @@
+.dropzone .dz-default.dz-message {
+    margin: 0 auto;
+    top: 0;
+    left: 0;
+    position: relative;
+}
+
+.dropzone table tr th:nth-child(4) {
+    text-align: center;
+}
+
+@media (max-width: 500px) {
+    .container {
+        margin-bottom: 15px;
+    }
+
+    .page-header {
+        padding-bottom: 0;
+        margin: 0 0 20px;
+    }
+
+    .page-header h3 {
+        margin-top: 10px;
+    }
+
+    .dropzone {
+        padding: 5px;
+    }
+
+    .dropzone .dz-default.dz-message {
+        width: 275px;
+        background-size: 100% auto;
+        top: 0;
+        left: 0;
+        position: relative;
+        height: 75px;
+    }
+}
