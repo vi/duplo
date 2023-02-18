@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="msapplication-tap-highlight" content="no"/>
+		<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no'/>
+
+		<title>{{title}}</title>
+
+		<link rel="shortcut icon" type="image/x-icon" href="/res/file-sharing.jpg" />
+		<link href="/res/bootstrap/css/bootstrap-theme.min.css" rel="stylesheet">
+		<link href="/res/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+		<link href="/res/dropzone/css/basic.css" rel="stylesheet">
+		<link href="/res/dropzone/css/dropzone.css" rel="stylesheet">
+		<link href="/res/file-sharing.css" rel="stylesheet">
+
+		<script type="text/javascript" src="/res/jquery/js/jquery.min.js"></script>
+		<script type="text/javascript" src="/res/bootstrap/js/bootstrap.min.js"></script>
+		<script type="text/javascript" src="/res/dropzone/dropzone.js"></script>
+	</head>
+	<body>
+		<div class="container">
+			<div class="row">
+				<div class="col-md-10 col-md-offset-1">
+					<div class="page-header">
+						<img src="/res/logo.jpg" height="100">
+						<button id="showTextSharingBoxBtn" type="button" class="btn btn-primary">Text</button>
+					</div>
+					<form action="upload/" id="dropzone" class="dropzone" method="post" enctype="multipart/form-data">
+						<div class="form-group">
+							<table id="file_table" class="table table-bordered">
+								<thead>
+									<tr>
+										<th class="col-md-1">#</th>
+										<th class="col-md-8">Name</th>
+										<th class="col-md-2">Time</th>
+										<th class="col-md-2">Size</th>
+										<th class="col-md-1">Action</th>
+									</tr>
+								</thead>
+								<tbody id="rows">
+									{% for (i,f) in files.iter().enumerate() %}
+                                        <tr id="row_{{i}}">
+                                            <td>{{i}}</td>
+											<td id="name"><a href="{{f.name}}">{{f.name}}</a></td>
+											<td>
+												<script type="text/javascript">
+													function addZero(i) {
+														if (i < 10) {
+															i = "0" + i;
+														}
+														return i;
+													}
+													var file_date = new Date({{f.time}} * 1000);
+													var file_date_string = addZero(file_date.getHours()) + ":" + addZero(file_date.getMinutes()) + ":" + addZero(file_date.getSeconds());
+													document.write(file_date_string);
+												</script>
+											</td>
+                                            <td>{{f.size}}</td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-danger btn-xs" onclick="removeFileRequest({{i}}, '{{f.name}}')">&times;</button>
+                                            </td>
+                                        </tr>
+                                    {%endfor%}
+									{% if files.is_empty() %}
+                                        <tr>
+                                            <td colspan="4" class="text-center">
+                                                No files uploaded yet
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+								</tbody>
+							</table>
+						</div>
+					</form>
+				</div>
+			</div>
+
+			<div id="textSharingBox" class="modal fade">
+				<div class="modal-dialog">
+					<div class="panel modal-content">
+						<div class="panel-heading modal-header">
+							<button id="closeBtn" class="close col-sm-1" aria-hidden="true">&times;</button>
+							<h4 class="modal-title">{{title}}</h4>
+						</div>
+						<div class="panel-body modal-body">
+							<form class="form-vertical">
+								<div id="titleGroup" class="form-group">
+									<label for="title" class="control-label">Title</label>
+
+									<input id="title" type="text" class="form-control">
+								</div>
+								<div id="bodyGroup" class="form-group">
+									<label for="body" class="control-label">Body</label>
+
+									<textarea id="body" rows="11" class="form-control"></textarea>
+								</div>
+							</form>
+						</div>
+						<div class="modal-footer">
+							<span id="errorLabel" style="color: #ff0000; display: none;">You must fill in all fields</span>
+							<button id="okBtn" type="button" class="btn btn-success col-md-offset-6" autofocus>Ok</button>
+							<button id="cancelBtn" type="button" class="btn btn-default col-md-offset-6">Cancel</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+            // disable confirmation dialog
+            Dropzone.confirm = function(question, accepted, rejected) {
+                   return accepted()
+            }
+
+            // setup dropzone
+			Dropzone.options.dropzone = {
+				paramName: "file", // The name that will be used to transfer the file
+				maxFilesize: 32 * 1024, // MB
+				addRemoveLinks: true,
+				dictCancelUpload: "Cancel",
+				dictRemoveFile: "Remove",
+				init: function() {
+					var self = this
+
+    				this.on("canceled", function(file) {
+                       	self.removeFile(file)
+					})
+
+					this.on("removedfile", function(file) {
+                        removeFileRequest(file.name)
+                    })
+
+                    this.on("queuecomplete", function(){
+                        location.reload()
+                    })
+  				},
+			}
+
+			var removeFileRequest = function(idx, fileName) {
+				$.ajax({
+  					type: "POST",
+  					url: "remove/",
+  					data: {
+						"fileName": fileName
+					},
+                    success: function() {
+                        $("#row_"+idx).remove()
+                    },
+                    error: function() {
+                        alert("can't remove " + fileName)
+                    }
+				})
+			}
+
+		    $("#showTextSharingBoxBtn").on("click", function () {
+				$("#textSharingBox").modal("show")
+			})
+
+			var showError = function(show) {
+				if (show) {
+					$("#errorLabel").show()
+					$("#titleGroup").addClass("has-error")
+					$("#bodyGroup").addClass("has-error")
+				} else {
+					$("#errorLabel").hide()
+					$("#titleGroup").removeClass("has-error")
+					$("#bodyGroup").removeClass("has-error")
+				}
+			}
+
+			var onCloseTextSharingBox = function() {
+				$("#textSharingBox").modal("hide")
+
+				showError(false)
+			}
+
+			$("#closeBtn").on("click", onCloseTextSharingBox)
+			$("#okBtn").on("click", function() {
+				var title = $("#title").val()
+				var body = $("#body").val()
+
+				if (!title.length || !body.length) {
+					showError(true)
+
+					return
+				}
+
+				$.ajax({
+  					type: "POST",
+  					url: "shareText/",
+  					data: {
+						"title": title,
+						"body": body
+					},
+                    success: function() {
+						$("#textSharingBox").modal("hide")
+
+						showError(false)
+
+						location.reload()
+                    },
+                    error: function() {
+                        alert("can't share text")
+                    }
+				})
+			})
+			$("#cancelBtn").on("click", onCloseTextSharingBox)
+		</script>
+		<p style="color:red">{{err}}</p>
+	</body>
+</html>
