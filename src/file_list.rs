@@ -1,14 +1,18 @@
-use std::{sync::Arc, time::UNIX_EPOCH, path::PathBuf};
+use std::{path::PathBuf, sync::Arc, time::UNIX_EPOCH};
 
 use askama::Template;
-use axum::{self, http::{StatusCode, HeaderValue}, Extension, extract::State};
+use askama_axum::IntoResponse;
 use axum::http::header::CACHE_CONTROL;
 use axum::response::Response;
+use axum::{
+    self,
+    extract::State,
+    http::{HeaderValue, StatusCode},
+    Extension,
+};
 use humansize::BINARY;
-use askama_axum::IntoResponse;
 
 use crate::disksize::Quotas;
-
 
 pub struct FileInfo {
     pub time: u64,
@@ -35,7 +39,7 @@ pub(crate) async fn serve_view(
     })?;
     let mut err = String::new();
     if quotas.files.is_exceed() {
-        err+="Too many files\n"
+        err += "Too many files\n"
     }
     if quotas.bytes.is_close_to_exeeed() {
         if quotas.bytes.is_exceed() {
@@ -44,8 +48,8 @@ pub(crate) async fn serve_view(
             err += "Disk storage quota is close to being full\n"
         }
     }
-    let files = files.flat_map(|f| {
-        match f {
+    let files = files
+        .flat_map(|f| match f {
             Err(e) => {
                 tracing::error!("readdir 2: {e}");
                 err += &format!("{e}");
@@ -53,7 +57,9 @@ pub(crate) async fn serve_view(
             }
             Ok(f) => {
                 if let Ok(name) = f.file_name().into_string() {
-                    if name.starts_with('.') { return None; }
+                    if name.starts_with('.') {
+                        return None;
+                    }
                     let mut time = 0;
                     let mut size = String::new();
                     if let Ok(metadata) = f.metadata() {
@@ -64,23 +70,22 @@ pub(crate) async fn serve_view(
                             }
                         }
                     }
-                    Some(FileInfo {
-                        name,
-                        size,
-                        time,
-                    })
+                    Some(FileInfo { name, size, time })
                 } else {
                     err += "Malformed filename skipped from the list";
                     None
                 }
             }
-        }
-    }).collect();
+        })
+        .collect();
     let mut response = ViewTemplate {
         title: "Duplo".to_owned(),
         files,
         err,
-    }.into_response();
-    response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    }
+    .into_response();
+    let h = response.headers_mut();
+    h.insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    h.insert(axum::http::header::CONTENT_SECURITY_POLICY, HeaderValue::from_static("default-src 'none'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; frame-ancestors 'none'"));
     Ok(response)
 }

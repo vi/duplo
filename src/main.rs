@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use axum::{
-    http::StatusCode,
+    http::{header::CONTENT_SECURITY_POLICY, HeaderValue, StatusCode},
     response::Redirect,
     routing::{get, get_service, post},
     Extension, Router,
@@ -78,15 +78,22 @@ async fn main() -> anyhow::Result<()> {
         .route("/shareText/", post(actions::share_text))
         .route("/remove/", post(actions::remove))
         .route("/upload/", post(actions::upload));
+
+    let security_header_for_content = tower_http::set_header::response::SetResponseHeaderLayer::appending(CONTENT_SECURITY_POLICY, HeaderValue::from_static(
+        "default-src 'none'; img-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'none'; frame-ancestors 'none'"
+    ));
+
     let app_transient = app
         .clone()
         .fallback_service(
-            get_service(ServeDir::new(opts.transiet_directory.clone())).handle_error(handle_error),
+            get_service(ServeDir::new(opts.transiet_directory.clone())).handle_error(handle_error)
+            .layer(security_header_for_content.clone()),
         )
         .layer(Extension(Arc::new(opts.transiet_directory)));
     let app_permanent = app
         .fallback_service(
-            get_service(ServeDir::new(opts.permanent_directory.clone())).handle_error(handle_error),
+            get_service(ServeDir::new(opts.permanent_directory.clone())).handle_error(handle_error)
+            .layer(security_header_for_content),
         )
         .layer(Extension(Arc::new(opts.permanent_directory)));
 
