@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use axum::{
     http::StatusCode,
@@ -16,26 +16,39 @@ struct Opts {
     listen_socket: SocketAddr,
 
     /// serve (and upload) files from this directory at /transient/
-    #[argh(positional)]
+    #[argh(option, short = 't')]
     transiet_directory: PathBuf,
 
     /// serve (and upload) files from this directory at /permanent/
-    #[argh(positional)]
+    #[argh(option, short = 'p')]
     permanent_directory: PathBuf,
 
-    /// maximum number of files allowed to reside in transient and permanent directories
-    #[argh(option, default="1000")]
+    /// maximum number of files allowed to reside in transient and permanent directories. Default is 1000
+    #[argh(option, default = "1000")]
     max_files: u64,
 
-    /// maximum number of bytes allowed to reside in transient and permanent directories
-    #[argh(option, default="10_000_000_000")]
+    /// maximum number of bytes allowed to reside in transient and permanent directories. Default is 10GB
+    #[argh(option, default = "10_000_000_000")]
     max_bytes: u64,
+
+    /// time of day (UTC+0 timezone) to trigger the cleanup event on. Default is `00:00:00`
+    #[argh(option, default = "time::Time::MIDNIGHT", from_str_fn(parsetime))]
+    cleanup_time_utc: time::Time,
+
+    /// clean up files older than this number of hours from the transient directory. Default is 24.  
+    #[argh(option, default = "24")]
+    cleanup_maxhours: u64,
 }
 
 mod actions;
+mod disksize;
 mod embedded_resources;
 mod file_list;
-mod disksize;
+
+fn parsetime(x: &str) -> Result<time::Time, String> {
+    let format = time::format_description::parse("[hour]:[minute]:[second]").unwrap();
+    time::Time::parse(x, &format).map_err(|_| format!("Invalid time `{x}` specified"))
+}
 
 async fn handle_error(_err: std::io::Error) -> StatusCode {
     StatusCode::INTERNAL_SERVER_ERROR
@@ -47,12 +60,18 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let listen_socket = opts.listen_socket;
+    let transient_directory_ = opts.transiet_directory.clone();
 
     let quotas = disksize::Quotas::new(opts.max_files, opts.max_bytes);
     quotas.scan_and_add(&opts.permanent_directory)?;
     quotas.scan_and_add(&opts.transiet_directory)?;
-    println!("Started, serving {} files and {} bytes", quotas.files.get(), quotas.bytes.get());
+    println!(
+        "Started, serving {} files and {} bytes",
+        quotas.files.get(),
+        quotas.bytes.get()
+    );
     let quotas = Arc::new(quotas);
+    let quotas_ = quotas.clone();
 
     let app = Router::new()
         .route("/", get(file_list::serve_view))
@@ -70,6 +89,17 @@ async fn main() -> anyhow::Result<()> {
             get_service(ServeDir::new(opts.permanent_directory.clone())).handle_error(handle_error),
         )
         .layer(Extension(Arc::new(opts.permanent_directory)));
+
+    std::thread::spawn(move || {
+        let Err(e) = disksize::cleanup_task(
+            &transient_directory_,
+            opts.cleanup_time_utc,
+            Duration::from_secs(3600*opts.cleanup_maxhours),
+            quotas_,
+        ) else {return} ;
+        eprintln!("Error from cleanup task: {e}");
+        std::process::exit(4);
+    });
 
     let routes = Router::new()
         .route("/", get(|| async { Redirect::permanent("/transient/") }))

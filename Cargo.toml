@@ -18,6 +18,7 @@ include_dir = "0.7.3"
 mime_guess = "2.0.4"
 renamore = "0.3.0"
 serde = { version = "1.0.152", features = ["derive"] }
+time = { version = "0.3.19", features = ["parsing"] }
 tokio = { version = "1.23.0", features = ["net", "fs", "sync", "macros", "rt", "io-util"] }
 tokio-util = { version = "0.7.7", features = ["codec"] }
 tower-http = { version = "0.3.5", features = ["trace", "set-header", "fs"] }
