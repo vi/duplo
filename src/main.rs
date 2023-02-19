@@ -22,11 +22,20 @@ struct Opts {
     /// serve (and upload) files from this directory at /permanent/
     #[argh(positional)]
     permanent_directory: PathBuf,
+
+    /// maximum number of files allowed to reside in transient and permanent directories
+    #[argh(option, default="1000")]
+    max_files: u64,
+
+    /// maximum number of bytes allowed to reside in transient and permanent directories
+    #[argh(option, default="10_000_000_000")]
+    max_bytes: u64,
 }
 
 mod actions;
 mod embedded_resources;
 mod file_list;
+mod disksize;
 
 async fn handle_error(_err: std::io::Error) -> StatusCode {
     StatusCode::INTERNAL_SERVER_ERROR
@@ -38,6 +47,12 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let listen_socket = opts.listen_socket;
+
+    let quotas = disksize::Quotas::new(opts.max_files, opts.max_bytes);
+    quotas.scan_and_add(&opts.permanent_directory)?;
+    quotas.scan_and_add(&opts.transiet_directory)?;
+    println!("Started, serving {} files and {} bytes", quotas.files.get(), quotas.bytes.get());
+    let quotas = Arc::new(quotas);
 
     let app = Router::new()
         .route("/", get(file_list::serve_view))
@@ -62,7 +77,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/permanent", app_permanent)
         .route("/persistent/", get(file_list::serve_view))
         .route("/res/*path", get(embedded_resources::serve_embedded))
-        //.with_state(state)
+        .with_state(quotas)
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
     axum::Server::try_bind(&listen_socket)?

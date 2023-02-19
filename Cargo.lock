@@ -227,6 +227,7 @@ dependencies = [
  "humansize 2.1.3",
  "include_dir",
  "mime_guess",
+ "renamore",
  "serde",
  "tokio",
  "tokio-util",
@@ -680,6 +681,12 @@ checksum = "8856d8364d252a14d474036ea1358d63c9e6965c8e5c1885c18f73d70bff9c7b"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "renamore"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8b7c9aac879193c36132f459ca90d75eff51c50cdbbb860f875270ff70ea720"
 
 [[package]]
 name = "rustversion"

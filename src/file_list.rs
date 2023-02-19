@@ -1,11 +1,13 @@
 use std::{sync::Arc, time::UNIX_EPOCH, path::PathBuf};
 
 use askama::Template;
-use axum::{self, http::{StatusCode, HeaderValue}, Extension};
+use axum::{self, http::{StatusCode, HeaderValue}, Extension, extract::State};
 use axum::http::header::CACHE_CONTROL;
 use axum::response::Response;
 use humansize::BINARY;
 use askama_axum::IntoResponse;
+
+use crate::disksize::Quotas;
 
 
 pub struct FileInfo {
@@ -25,17 +27,28 @@ pub struct ViewTemplate {
 #[axum::debug_handler]
 pub(crate) async fn serve_view(
     Extension(dir): Extension<Arc<PathBuf>>,
+    State(quotas): State<Arc<Quotas>>,
 ) -> Result<Response, StatusCode> {
     let files = std::fs::read_dir(&*dir).map_err(|e| {
         tracing::error!("readdir: {e}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     let mut err = String::new();
+    if quotas.files.is_exceed() {
+        err+="Too many files\n"
+    }
+    if quotas.bytes.is_close_to_exeeed() {
+        if quotas.bytes.is_exceed() {
+            err += "Disk storage quota full\n"
+        } else {
+            err += "Disk storage quota is close to being full\n"
+        }
+    }
     let files = files.flat_map(|f| {
         match f {
             Err(e) => {
                 tracing::error!("readdir 2: {e}");
-                err = format!("{e}");
+                err += &format!("{e}");
                 None
             }
             Ok(f) => {
@@ -57,7 +70,7 @@ pub(crate) async fn serve_view(
                         time,
                     })
                 } else {
-                    err = "Malformed filename skipped from the list".to_owned();
+                    err += "Malformed filename skipped from the list";
                     None
                 }
             }

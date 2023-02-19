@@ -25,6 +25,7 @@
 						<img src="/res/logo.jpg" height="100">
 						<button id="showTextSharingBoxBtn" type="button" class="btn btn-primary">Text</button>
 					</div>
+					<p id="errormessage">{{err}}</p>
 					<form action="upload/" id="dropzone" class="dropzone" method="post" enctype="multipart/form-data">
 						<div class="form-group">
 							<table id="file_table" class="table table-bordered">
@@ -206,6 +207,6 @@
 			})
 			$("#cancelBtn").on("click", onCloseTextSharingBox)
 		</script>
-		<p style="color:red">{{err}}</p>
+		<p id="errormessage">{{err}}</p>
 	</body>
 </html>

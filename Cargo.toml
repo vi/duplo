@@ -16,6 +16,7 @@ futures = "0.3.26"
 humansize = "2.1.3"
 include_dir = "0.7.3"
 mime_guess = "2.0.4"
+renamore = "0.3.0"
 serde = { version = "1.0.152", features = ["derive"] }
 tokio = { version = "1.23.0", features = ["net", "fs", "sync", "macros", "rt", "io-util"] }
 tokio-util = { version = "0.7.7", features = ["codec"] }

@@ -36,3 +36,9 @@
         height: 75px;
     }
 }
+
+#errormessage {
+    color: red;
+    font-size: large;
+    text-align: center;
+}
