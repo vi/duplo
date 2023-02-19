@@ -27,7 +27,7 @@ Deploying globally accessible instances of Duplo is not recommended.
 
 # Deployment
 
-1. Download pre-built release of Duplo from [Github Releases](https://github.com/vi/duplo/releases) or build it from the source code with `cargo install --path .'
+1. Download pre-built release of Duplo from [Github Releases](https://github.com/vi/duplo/releases) or build it from the source code with `cargo install --path .`
 2. Choose two directories: transient (old files are clean up daily) and permanent (no cleanup happens).
 3. Choose port to serve incomding requests on.
 4. Start the application: `duplo 0.0.0.0:80 -t /path/to/directory_where_old_files_disappear -p /path/to/permanent_directory`
