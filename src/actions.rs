@@ -13,7 +13,7 @@ use tokio_util::codec::{FramedWrite, BytesCodec};
 use tracing::{warn, error};
 use futures::{stream::StreamExt, SinkExt, TryStreamExt};
 
-use crate::disksize::Quotas;
+use crate::{disksize::Quotas, SharedDirectory};
 
 fn allowed_filename(x: &str) -> bool {
     if x.contains("..") {
@@ -71,7 +71,7 @@ pub(crate) struct ShareText {
 #[axum::debug_handler]
 pub(crate) async fn share_text(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Extension(dir): Extension<Arc<PathBuf>>,
+    Extension(shared_dir): Extension<Arc<SharedDirectory>>,
     State(quotas): State<Arc<Quotas>>,
     Form(f): Form<ShareText>,
 ) -> Result<(), StatusCode> {
@@ -97,7 +97,7 @@ pub(crate) async fn share_text(
         quotas.bytes.reduce(body.len() as u64);
         return Err(StatusCode::PAYLOAD_TOO_LARGE);
     }
-    let (newfile, _) = create_new_file(&dir, &filename, &quotas)?;
+    let (newfile, _) = create_new_file(&shared_dir.dir, &filename, &quotas)?;
     let mut newfile = tokio::fs::File::from_std(newfile);
 
     match newfile.write_all(&body).await {
@@ -120,7 +120,7 @@ pub(crate) struct Remove {
 #[axum::debug_handler]
 pub(crate) async fn remove(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Extension(dir): Extension<Arc<PathBuf>>,
+    Extension(shared_dir): Extension<Arc<SharedDirectory>>,
     State(quotas): State<Arc<Quotas>>,
     Form(f): Form<Remove>,
 ) -> Result<(), StatusCode> {
@@ -130,7 +130,7 @@ pub(crate) async fn remove(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let p = dir.join(f.filename);
+    let p = shared_dir.dir.join(f.filename);
     let metadata = std::fs::metadata(&p);
     match std::fs::remove_file(p) {
         Ok(()) => {
@@ -156,7 +156,7 @@ pub(crate) async fn remove(
 #[axum::debug_handler]
 pub(crate) async fn upload(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Extension(dir): Extension<Arc<PathBuf>>,
+    Extension(shared_dir): Extension<Arc<SharedDirectory>>,
     State(quotas): State<Arc<Quotas>>,
     mut multipart: Multipart,
 ) -> Result<(), (StatusCode, &'static str)> {
@@ -178,7 +178,7 @@ pub(crate) async fn upload(
                     return Err((StatusCode::PAYLOAD_TOO_LARGE, "Disk storage quota full"));
                 }
 
-                let (file, newname) = match create_new_file(&dir, &filename, &quotas) {
+                let (file, newname) = match create_new_file(&shared_dir.dir, &filename, &quotas) {
                     Ok(x) => x,
                     Err(code) => {
                         return Err((code, "Failed create a file"))

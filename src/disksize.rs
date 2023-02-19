@@ -79,7 +79,7 @@ pub fn cleanup_task(transient_dir: &Path, cleanup_time: time::Time, max_age: Dur
             next_cleanup += Duration::from_secs(24*3600);
         }
         let to_wait : Duration = (next_cleanup - begin).try_into()?;
-        info!("Cleanup task is waiting for {:?}", to_wait);
+        debug!("Cleanup task is waiting for {:?}", to_wait);
         std::thread::sleep(to_wait);
 
         let mut bytes_retained = 0u64;

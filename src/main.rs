@@ -38,6 +38,18 @@ struct Opts {
     /// clean up files older than this number of hours from the transient directory. Default is 24.  
     #[argh(option, default = "24")]
     cleanup_maxhours: u64,
+
+    /// page title for transient directory's filelist
+    #[argh(option, default = "\"Duplo\".to_owned()")]
+    transient_title: String,
+
+    /// page title for permanent directory's filelist
+    #[argh(option, default = "\"Duplo (permanent)\".to_owned()")]
+    permanent_title: String,
+
+    /// set this Content-Security-Policy header for served files
+    #[argh(option, default = "\"default-src 'none'; img-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'none'; frame-ancestors 'none'\".to_owned()")]
+    content_security_policy: String,
 }
 
 mod actions;
@@ -52,6 +64,11 @@ fn parsetime(x: &str) -> Result<time::Time, String> {
 
 async fn handle_error(_err: std::io::Error) -> StatusCode {
     StatusCode::INTERNAL_SERVER_ERROR
+}
+
+struct SharedDirectory {
+    dir: PathBuf,
+    title: String,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -79,9 +96,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/remove/", post(actions::remove))
         .route("/upload/", post(actions::upload));
 
-    let security_header_for_content = tower_http::set_header::response::SetResponseHeaderLayer::appending(CONTENT_SECURITY_POLICY, HeaderValue::from_static(
-        "default-src 'none'; img-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'none'; frame-ancestors 'none'"
-    ));
+    let security_header_for_content = tower_http::set_header::response::SetResponseHeaderLayer::appending(CONTENT_SECURITY_POLICY, HeaderValue::from_str(
+        &opts.content_security_policy
+    )?);
+
 
     let app_transient = app
         .clone()
@@ -89,13 +107,13 @@ async fn main() -> anyhow::Result<()> {
             get_service(ServeDir::new(opts.transiet_directory.clone())).handle_error(handle_error)
             .layer(security_header_for_content.clone()),
         )
-        .layer(Extension(Arc::new(opts.transiet_directory)));
+        .layer(Extension(Arc::new(SharedDirectory{dir: opts.transiet_directory, title: opts.transient_title})));
     let app_permanent = app
         .fallback_service(
             get_service(ServeDir::new(opts.permanent_directory.clone())).handle_error(handle_error)
             .layer(security_header_for_content),
         )
-        .layer(Extension(Arc::new(opts.permanent_directory)));
+        .layer(Extension(Arc::new(SharedDirectory{dir: opts.permanent_directory, title: opts.permanent_title})));
 
     std::thread::spawn(move || {
         let Err(e) = disksize::cleanup_task(

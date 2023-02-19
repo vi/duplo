@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc, time::UNIX_EPOCH};
+use std::{sync::Arc, time::UNIX_EPOCH};
 
 use askama::Template;
 use askama_axum::IntoResponse;
@@ -12,6 +12,7 @@ use axum::{
 };
 use humansize::BINARY;
 
+use crate::SharedDirectory;
 use crate::disksize::Quotas;
 
 pub struct FileInfo {
@@ -30,10 +31,10 @@ pub struct ViewTemplate {
 
 #[axum::debug_handler]
 pub(crate) async fn serve_view(
-    Extension(dir): Extension<Arc<PathBuf>>,
+    Extension(shared_dir): Extension<Arc<SharedDirectory>>,
     State(quotas): State<Arc<Quotas>>,
 ) -> Result<Response, StatusCode> {
-    let files = std::fs::read_dir(&*dir).map_err(|e| {
+    let files = std::fs::read_dir(&*shared_dir.dir).map_err(|e| {
         tracing::error!("readdir: {e}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -79,7 +80,7 @@ pub(crate) async fn serve_view(
         })
         .collect();
     let mut response = ViewTemplate {
-        title: "Duplo".to_owned(),
+        title: shared_dir.title.clone(),
         files,
         err,
     }
