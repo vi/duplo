@@ -80,5 +80,5 @@ Options:
 # License
 
 Code in `src/` directory is original and is licensed with MIT or Apache-2.0.  
-Code within `res/` directory (e.g. jquery, dropzone.js, bootstrap) originates from multiple sources and typically have MIT-like licenses. Those files are embedded into executalbe at build time.  
+Code within `res/` directory (e.g. jquery, dropzone.js, bootstrap) originates from multiple sources and typically have MIT-like licenses. Those files are embedded into the executable at build time.  
 Code in `templates/` is based on [filesharing-web-service](https://github.com/Mikhalevich/filesharing-web-service/tree/22e686e89aee40447e0a0942c444170806bd3cfb), which does not specify a licence.  
