@@ -8,7 +8,7 @@ Web application for anonymous file sharing. Alternative backend for [Mikhalevich
 
 * Uploading files to server from browser, including by drag and drop.
 * Easy way to publish a text snippet (pastebin-style).
-* Uploaded html pages immediately become viewable in browser.
+* Uploaded html pages immediately become viewable in browser. `index.html` is searched in directories. MIME types are guessed.
 * Automatic cleanup of old files in one of the two directories.
 * Quotas to prevent excessive files count or total byte size.
 * Easy deployment: executable embeds static assets, is usable as is (without a separate Web server).
@@ -22,6 +22,7 @@ Web application for anonymous file sharing. Alternative backend for [Mikhalevich
 * Iffy web security. Uploaded html files are served as `text/html`, which affects web security of the origin Duplo is deployed at.
 * Configuration is not very flexible. Unlike original "filesharing" there always two shares. You may want to override "Content-Security-Policy" header for served content for more permissive or more restrictive rules.
 * Not tested on non-Linux
+* No support for creating, listing or removing directories.
 
 Deploying globally accessible instances of Duplo is not recommended.
 

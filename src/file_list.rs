@@ -2,8 +2,9 @@ use std::{sync::Arc, time::UNIX_EPOCH};
 
 use askama::Template;
 use askama_axum::IntoResponse;
+use axum::extract::OriginalUri;
 use axum::http::header::CACHE_CONTROL;
-use axum::response::Response;
+use axum::response::{Response, Redirect};
 use axum::{
     self,
     extract::State,
@@ -31,9 +32,13 @@ pub struct ViewTemplate {
 
 #[axum::debug_handler]
 pub(crate) async fn serve_view(
+    OriginalUri(uri): OriginalUri,
     Extension(shared_dir): Extension<Arc<SharedDirectory>>,
     State(quotas): State<Arc<Quotas>>,
 ) -> Result<Response, StatusCode> {
+    if ! uri.path().ends_with('/') {
+        return Ok(Redirect::permanent(&format!("{}/", uri.path())).into_response())
+    }
     let files = std::fs::read_dir(&*shared_dir.dir).map_err(|e| {
         tracing::error!("readdir: {e}");
         StatusCode::INTERNAL_SERVER_ERROR
@@ -57,7 +62,7 @@ pub(crate) async fn serve_view(
                 None
             }
             Ok(f) => {
-                if let Ok(name) = f.file_name().into_string() {
+                if let Ok(mut name) = f.file_name().into_string() {
                     if name.starts_with('.') {
                         return None;
                     }
@@ -69,6 +74,9 @@ pub(crate) async fn serve_view(
                             if let Ok(dur) = modified.duration_since(UNIX_EPOCH) {
                                 time = dur.as_secs();
                             }
+                        }
+                        if metadata.is_dir() {
+                            name += "/";
                         }
                     }
                     Some(FileInfo { name, size, time })
