@@ -1,10 +1,10 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use axum::{
-    http::{header::CONTENT_SECURITY_POLICY, HeaderValue, StatusCode},
+    http::{header::CONTENT_SECURITY_POLICY, HeaderValue},
     response::Redirect,
     routing::{get, get_service, post},
-    Extension, Router,
+    Extension, Router, extract::DefaultBodyLimit,
 };
 use tower_http::services::ServeDir;
 
@@ -62,10 +62,6 @@ fn parsetime(x: &str) -> Result<time::Time, String> {
     time::Time::parse(x, &format).map_err(|_| format!("Invalid time `{x}` specified"))
 }
 
-async fn handle_error(_err: std::io::Error) -> StatusCode {
-    StatusCode::INTERNAL_SERVER_ERROR
-}
-
 struct SharedDirectory {
     dir: PathBuf,
     title: String,
@@ -90,11 +86,13 @@ async fn main() -> anyhow::Result<()> {
     let quotas = Arc::new(quotas);
     let quotas_ = quotas.clone();
 
+    let uploader = Router::new().route("/", post(actions::upload)).layer(DefaultBodyLimit::disable());
+
     let app = Router::new()
         .route("/", get(file_list::serve_view))
         .route("/shareText/", post(actions::share_text))
         .route("/remove/", post(actions::remove))
-        .route("/upload/", post(actions::upload));
+        .nest("/upload/", uploader);
 
     let security_header_for_content = tower_http::set_header::response::SetResponseHeaderLayer::appending(CONTENT_SECURITY_POLICY, HeaderValue::from_str(
         &opts.content_security_policy
@@ -104,16 +102,20 @@ async fn main() -> anyhow::Result<()> {
     let app_transient = app
         .clone()
         .fallback_service(
-            get_service(ServeDir::new(opts.transiet_directory.clone())).handle_error(handle_error)
-            .layer(security_header_for_content.clone()),
+            get_service(ServeDir::new(opts.transiet_directory.clone()))
+            .layer(security_header_for_content.clone())
+            ,
         )
-        .layer(Extension(Arc::new(SharedDirectory{dir: opts.transiet_directory, title: opts.transient_title})));
+        .layer(Extension(Arc::new(SharedDirectory{dir: opts.transiet_directory, title: opts.transient_title})))
+        .with_state(quotas.clone())
+        ;
     let app_permanent = app
         .fallback_service(
-            get_service(ServeDir::new(opts.permanent_directory.clone())).handle_error(handle_error)
+            get_service(ServeDir::new(opts.permanent_directory.clone()))
             .layer(security_header_for_content),
         )
-        .layer(Extension(Arc::new(SharedDirectory{dir: opts.permanent_directory, title: opts.permanent_title})));
+        .layer(Extension(Arc::new(SharedDirectory{dir: opts.permanent_directory, title: opts.permanent_title})))
+        .with_state(quotas);
 
     std::thread::spawn(move || {
         let Err(e) = disksize::cleanup_task(
@@ -128,11 +130,9 @@ async fn main() -> anyhow::Result<()> {
 
     let routes = Router::new()
         .route("/", get(|| async { Redirect::permanent("/transient/") }))
-        .nest("/transient", app_transient)
-        .nest("/permanent", app_permanent)
-        .route("/persistent/", get(file_list::serve_view))
+        .nest_service("/transient", app_transient)
+        .nest_service("/permanent", app_permanent)
         .route("/res/*path", get(embedded_resources::serve_embedded))
-        .with_state(quotas)
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
     axum::Server::try_bind(&listen_socket)?

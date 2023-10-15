@@ -1,6 +1,6 @@
 [package]
 name = "duplo"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 categories = ["command-line-utilities", "web-programming::http-server"]
 keywords = ["fileshare", "webapp", "upload"]
@@ -12,20 +12,20 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 anyhow = "1.0.68"
 argh = "0.1.10"
-askama = {version="0.11.1",features=["with-axum"]}
-askama_axum = "0.2.1"
+askama = { version = "0.12", features = ["with-axum"] }
+askama_axum = "0.3"
 axum = { version = "0.6.1", features = ["multipart", "http2", "macros", "form", "original-uri"] }
-axum-extra = "0.5.0"
+axum-extra = "0.8"
 futures = "0.3.26"
 humansize = "2.1.3"
 include_dir = "0.7.3"
 mime_guess = "2.0.4"
-renamore = "0.3.0"
+renamore = "0.3.1"
 serde = { version = "1.0.152", features = ["derive"] }
 time = { version = "0.3.19", features = ["parsing"] }
 tokio = { version = "1.23.0", features = ["net", "fs", "sync", "macros", "rt", "io-util"] }
 tokio-util = { version = "0.7.7", features = ["codec"] }
-tower-http = { version = "0.3.5", features = ["trace", "set-header", "fs"] }
+tower-http = { version = "0.4", features = ["trace", "set-header", "fs"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 
