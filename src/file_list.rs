@@ -4,7 +4,7 @@ use askama::Template;
 use askama_axum::IntoResponse;
 use axum::extract::OriginalUri;
 use axum::http::header::CACHE_CONTROL;
-use axum::response::{Response, Redirect};
+use axum::response::{Redirect, Response};
 use axum::{
     self,
     extract::State,
@@ -13,13 +13,20 @@ use axum::{
 };
 use humansize::BINARY;
 
-use crate::SharedDirectory;
 use crate::disksize::Quotas;
+use crate::SharedDirectory;
 
 pub struct FileInfo {
     pub time: u64,
     pub name: String,
     pub size: String,
+
+    pub year: i32,
+    pub month: u8,
+    pub day: u8,
+    pub hour: u8,
+    pub minute: u8,
+    pub second: u8,
 }
 
 #[derive(Template)]
@@ -36,8 +43,8 @@ pub(crate) async fn serve_view(
     Extension(shared_dir): Extension<Arc<SharedDirectory>>,
     State(quotas): State<Arc<Quotas>>,
 ) -> Result<Response, StatusCode> {
-    if ! uri.path().ends_with('/') {
-        return Ok(Redirect::permanent(&format!("{}/", uri.path())).into_response())
+    if !uri.path().ends_with('/') {
+        return Ok(Redirect::permanent(&format!("{}/", uri.path())).into_response());
     }
     let files = std::fs::read_dir(&*shared_dir.dir).map_err(|e| {
         tracing::error!("readdir: {e}");
@@ -54,7 +61,7 @@ pub(crate) async fn serve_view(
             err += "Disk storage quota is close to being full\n"
         }
     }
-    let files = files
+    let mut files: Vec<FileInfo> = files
         .flat_map(|f| match f {
             Err(e) => {
                 tracing::error!("readdir 2: {e}");
@@ -79,7 +86,19 @@ pub(crate) async fn serve_view(
                             name += "/";
                         }
                     }
-                    Some(FileInfo { name, size, time })
+                    let tf = time::OffsetDateTime::from_unix_timestamp(time as i64)
+                        .unwrap_or(time::OffsetDateTime::UNIX_EPOCH);
+                    Some(FileInfo {
+                        name,
+                        size,
+                        time,
+                        year: tf.year(),
+                        month: tf.month().into(),
+                        day: tf.day(),
+                        hour: tf.hour(),
+                        minute: tf.minute(),
+                        second: tf.second(),
+                    })
                 } else {
                     err += "Malformed filename skipped from the list";
                     None
@@ -87,6 +106,7 @@ pub(crate) async fn serve_view(
             }
         })
         .collect();
+    files.sort_by_key(|fi| fi.time);
     let mut response = ViewTemplate {
         title: shared_dir.title.clone(),
         files,

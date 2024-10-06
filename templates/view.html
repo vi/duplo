@@ -33,7 +33,7 @@
 									<tr>
 										<th class="col-md-1">#</th>
 										<th class="col-md-8">Name</th>
-										<th class="col-md-2">Time</th>
+										<th class="col-md-2">Time <span style="font-size: smaller;">(GMT+0)</span></th>
 										<th class="col-md-2">Size</th>
 										<th class="col-md-1">Action</th>
 									</tr>
@@ -43,18 +43,8 @@
                                         <tr id="row_{{i}}">
                                             <td>{{i}}</td>
 											<td id="name"><a href="{{f.name}}">{{f.name}}</a></td>
-											<td>
-												<script type="text/javascript">
-													function addZero(i) {
-														if (i < 10) {
-															i = "0" + i;
-														}
-														return i;
-													}
-													var file_date = new Date({{f.time}} * 1000);
-													var file_date_string = addZero(file_date.getHours()) + ":" + addZero(file_date.getMinutes()) + ":" + addZero(file_date.getSeconds());
-													document.write(file_date_string);
-												</script>
+											<td title="{{"{:04}"|format(f.year)}}-{{"{:02}"|format(f.month)}}-{{"{:02}"|format(f.day)}}">
+												{{"{:02}"|format(f.hour)}}:{{"{:02}"|format(f.minute)}}:{{"{:02}"|format(f.second)}}
 											</td>
                                             <td>{{f.size}}</td>
                                             <td class="text-center">
